@@ -46,14 +46,9 @@ func (s *Roaster) Write(pkt Packet) error {
 }
 
 func (s *Roaster) Read() (Packet, error) {
-	n, err := s.port.Read(s.buf)
-
+	_, err := io.ReadFull(s.port, s.buf)
 	if err != nil {
-		return Packet{}, err
-	}
-
-	if n != PacketLength {
-		return Packet{}, fmt.Errorf("incomplete read, read %d, expected %d", n, PacketLength)
+		return Packet{}, fmt.Errorf("incomplete read: %w", err)
 	}
 
 	if s.debug {
