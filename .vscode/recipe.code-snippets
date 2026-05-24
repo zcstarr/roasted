@@ -1,0 +1,43 @@
+{
+  "Simple recipe step": {
+    "scope": "json,jsonc",
+    "prefix": "step",
+    "description": "Insert a SimpleRecipe heat/fan/duration step",
+    "body": [
+      "{",
+      "  \"heat\": ${1|0,1,2,3|},",
+      "  \"fan\": ${2|1,2,3,4,5,6,7,8,9|},",
+      "  \"duration\": ${3:30}",
+      "}$0"
+    ]
+  },
+  "Simple recipe cooling step": {
+    "scope": "json,jsonc",
+    "prefix": "cool",
+    "description": "Insert a SimpleRecipe cooling step (fan only)",
+    "body": [
+      "{",
+      "  \"fan\": ${1|1,2,3,4,5,6,7,8,9|},",
+      "  \"duration\": ${2:30},",
+      "  \"cooling\": true",
+      "}$0"
+    ]
+  },
+  "Simple recipe scaffold": {
+    "scope": "json,jsonc",
+    "prefix": "recipe",
+    "description": "New SimpleRecipe with $schema reference",
+    "body": [
+      "{",
+      "  \"$schema\": \"./schemas/simple-recipe.schema.json\",",
+      "  \"steps\": [",
+      "    {",
+      "      \"heat\": ${1|0,1,2,3|},",
+      "      \"fan\": ${2|1,2,3,4,5,6,7,8,9|},",
+      "      \"duration\": ${3:30}",
+      "    }$0",
+      "  ]",
+      "}"
+    ]
+  }
+}

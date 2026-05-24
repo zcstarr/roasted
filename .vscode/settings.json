@@ -1,0 +1,18 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "**/*.recipe.json",
+        "recipes/simple/**"
+      ],
+      "url": "./schemas/simple-recipe.schema.json"
+    },
+    {
+      "fileMatch": [
+        "**/*.openroast.json",
+        "recipes/openroast/**"
+      ],
+      "url": "./schemas/openroast-recipe.schema.json"
+    }
+  ]
+}

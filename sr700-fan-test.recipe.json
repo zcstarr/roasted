@@ -1,0 +1,10 @@
+{
+  "steps": [
+    {
+      "fan": 9,
+      "heat": 0,
+      "duration": 30,
+      "cooling": true
+    }
+  ]
+}

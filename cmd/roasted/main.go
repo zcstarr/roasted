@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/jmhobbs/roasted/pkg"
-	"github.com/jmhobbs/roasted/sr700"
+	"github.com/zcstarr/roasted/pkg"
+	"github.com/zcstarr/roasted/sr700"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("serial.Open: %v", err)
 	}
-	defer port.Close()
+	defer func() { _ = port.Close() }()
 
 	roaster := sr700.New(port)
 	roaster.SetDebug(*debug)
@@ -49,7 +49,7 @@ func main() {
 
 	for i, step := range recipe.Steps {
 		var (
-			secondsRemaining int = step.Duration
+			secondsRemaining = step.Duration
 			temp             sr700.Temperature
 		)
 
