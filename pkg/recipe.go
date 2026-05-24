@@ -5,10 +5,35 @@ package pkg
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/zcstarr/roasted/sr700"
 )
+
+// Format identifies which recipe JSON schema a file uses.
+type Format int
+
+const (
+	FormatSimple Format = iota
+	FormatOpenRoast
+)
+
+func (f Format) String() string {
+	switch f {
+	case FormatOpenRoast:
+		return "openroast"
+	default:
+		return "simple"
+	}
+}
+
+// Recipe is a roast program loaded from JSON.
+type Recipe interface {
+	Format() Format
+}
 
 // OpenRoastRecipeStep is one step of an OpenRoast-format recipe.
 type OpenRoastRecipeStep struct {
@@ -80,15 +105,105 @@ type SimpleRecipe struct {
 	Steps []SimpleRecipeStep `json:"steps" jsonschema:"minItems=1"`
 }
 
+// Format reports the simple recipe schema.
+func (SimpleRecipe) Format() Format { return FormatSimple }
+
+// Format reports the OpenRoast recipe schema.
+func (OpenRoastRecipe) Format() Format { return FormatOpenRoast }
+
+// TargetTempF returns the PID setpoint for a step, defaulting to 150°F when omitted.
+func (s OpenRoastRecipeStep) TargetTempF() int {
+	if s.TargetTemp == 0 {
+		return 150
+	}
+	return s.TargetTemp
+}
+
 // LoadSimpleRecipe reads and parses a SimpleRecipe JSON file from path.
 func LoadSimpleRecipe(path string) (*SimpleRecipe, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }()
-
 	var recipe SimpleRecipe
-	err = json.NewDecoder(f).Decode(&recipe)
-	return &recipe, err
+	if err := json.Unmarshal(data, &recipe); err != nil {
+		return nil, err
+	}
+	return &recipe, nil
+}
+
+// LoadOpenRoastRecipe reads and parses an OpenRoastRecipe JSON file from path.
+func LoadOpenRoastRecipe(path string) (*OpenRoastRecipe, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var recipe OpenRoastRecipe
+	if err := json.Unmarshal(data, &recipe); err != nil {
+		return nil, err
+	}
+	return &recipe, nil
+}
+
+// LoadRecipe reads a recipe file and auto-detects simple vs OpenRoast format.
+func LoadRecipe(path string) (Recipe, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	format, err := detectFormat(path, data)
+	if err != nil {
+		return nil, err
+	}
+	switch format {
+	case FormatOpenRoast:
+		var recipe OpenRoastRecipe
+		if err := json.Unmarshal(data, &recipe); err != nil {
+			return nil, err
+		}
+		if len(recipe.Steps) == 0 {
+			return nil, fmt.Errorf("recipe has no steps")
+		}
+		return &recipe, nil
+	default:
+		var recipe SimpleRecipe
+		if err := json.Unmarshal(data, &recipe); err != nil {
+			return nil, err
+		}
+		if len(recipe.Steps) == 0 {
+			return nil, fmt.Errorf("recipe has no steps")
+		}
+		return &recipe, nil
+	}
+}
+
+func detectFormat(path string, data []byte) (Format, error) {
+	if strings.HasSuffix(strings.ToLower(filepath.Base(path)), ".openroast.json") {
+		return FormatOpenRoast, nil
+	}
+
+	var peek struct {
+		Steps []json.RawMessage `json:"steps"`
+	}
+	if err := json.Unmarshal(data, &peek); err != nil {
+		return 0, fmt.Errorf("parse recipe: %w", err)
+	}
+	if len(peek.Steps) == 0 {
+		return 0, fmt.Errorf("recipe has no steps")
+	}
+
+	var firstStep struct {
+		FanSpeed json.RawMessage `json:"fanSpeed"`
+		Heat     json.RawMessage `json:"heat"`
+	}
+	if err := json.Unmarshal(peek.Steps[0], &firstStep); err != nil {
+		return 0, fmt.Errorf("parse first step: %w", err)
+	}
+	if len(firstStep.FanSpeed) > 0 {
+		return FormatOpenRoast, nil
+	}
+	if len(firstStep.Heat) > 0 {
+		return FormatSimple, nil
+	}
+	return FormatSimple, nil
 }

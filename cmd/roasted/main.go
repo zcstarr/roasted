@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"time"
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/zcstarr/roasted/pkg"
@@ -17,7 +16,11 @@ func main() {
 	)
 	flag.Parse()
 
-	recipe, err := pkg.LoadSimpleRecipe(flag.Arg(0))
+	if flag.NArg() == 0 {
+		log.Fatal("usage: roasted [-device PATH] [-debug] <recipe.json>")
+	}
+
+	recipe, err := pkg.LoadRecipe(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,44 +50,15 @@ func main() {
 
 	log.Println("Connected.  Program: ", pgm)
 
-	for i, step := range recipe.Steps {
-		var (
-			secondsRemaining = step.Duration
-			temp             sr700.Temperature
-		)
-
-		log.Printf("= Step %d - Heat: %v Fan: %v Cooling: %v Duration: %v", i, step.Heat, step.Fan, step.Cooling, step.Duration)
-		for secondsRemaining > 0 {
-			if step.Cooling {
-				temp, err = roaster.Cool(step.Fan, time.Second*10)
-			} else {
-				temp, err = roaster.Roast(step.Fan, step.Heat, time.Second*10)
-			}
-
-			if err != nil {
-				log.Println("error! ", err)
-			} else {
-				if temp == sr700.TemperatureBelow150F {
-					log.Printf("<- -- F / %d s", secondsRemaining)
-				}
-				log.Printf("<- %v F / %d s", temp, secondsRemaining)
-			}
-
-			time.Sleep(time.Second * time.Duration(min(secondsRemaining, 5)))
-
-			secondsRemaining = secondsRemaining - 5
-		}
+	switch r := recipe.(type) {
+	case *pkg.SimpleRecipe:
+		err = pkg.RunSimpleRecipe(roaster, r)
+	case *pkg.OpenRoastRecipe:
+		err = pkg.RunOpenRoastRecipe(roaster, r)
+	default:
+		log.Fatalf("unsupported recipe format: %T", recipe)
 	}
-
-	_, err = roaster.Stop()
 	if err != nil {
 		log.Printf("error stopping: %v", err)
 	}
-}
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
 }
